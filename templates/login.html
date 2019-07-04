@@ -1,0 +1,41 @@
+{% extends "navbar.html" %}
+{% block title %} Login {% endblock %}
+{% block  head %}
+	{{ super() }}
+{% endblock %}
+
+{% block body %}
+
+    <div class="container valign-wrapper">
+        <div class="row">
+            <div class="col s8 offset-2">
+                <a href="/" class="btn-flat waves-effect"><i class="material-icons left">keyboard_backspace</i> Back to home</a>
+                <div style="padding-left: 11.250px" class="col s12">
+                    <h4><b>Login</b> below</h4>
+                    <p class="grey-text text-darken-1">Don't have an account? <a href="/register">Register</a></p>
+                </div>
+                <form method=POST action="{{ url_for('login') }}">
+                    {{ form.csrf_token }}
+                    <div class="input-field col s12">
+                        {{ form.email }}
+                        {{ form.email.label }}
+                        {% if form.email.errors %}
+                            <span class="red-text">{{ error }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="input-field col s12">
+                        {{ form.password }}
+                        {{ form.password.label }}
+                        {% if form.password.errors %}
+                            <span class="red-text">{{ error }}</span>
+                        {% endif %}
+                    </div>
+                    <div style="padding-left: 11.250px" class="col s12">
+                        {{ form.submit(class_="custom-button btn btn-large hoverable blue accent-3") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}

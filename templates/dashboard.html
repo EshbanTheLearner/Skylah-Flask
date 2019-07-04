@@ -1,0 +1,25 @@
+{% extends "navbar.html" %}
+{% block title %} Dashboard {% endblock %}
+{% block  head %}
+	{{ super() }}
+{% endblock %}
+{% block body %}
+    <div class="container valign-wrapper">
+        <div class="row">
+            <div class="col s12 center-align">
+                <h4>
+                    <b>Hey there, </b> {{name.split(" ")[0]}}
+                    <p class="flow-text grey-text text-darken-1">
+                        To chat with the bot, please click the <span style="font-family: monospace;">CHAT</span> button
+                    </p>
+                </h4>
+                <div class="col s6">
+                    <a href="{{ url_for('chat') }}" class="custom-button btn btn-large waves-effect waves-light hoverable blue accent-3">Chat</a>
+                </div>
+                <div class="col s6">
+                    <a href="{{ url_for('logout') }}" class="custom-button btn btn-large waves-effect black-text waves-light hoverable white">Logout</a>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

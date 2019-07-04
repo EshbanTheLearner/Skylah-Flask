@@ -1,0 +1,24 @@
+{% extends "navbar.html" %}
+{% block title %} Welcome {% endblock %}
+{% block  head %}
+	{{ super() }}
+{% endblock %}
+{% block body %}
+	<div style="height:75vh" class="container valign-wrapper hero">
+        <div class="row">
+            <div class="col s12 center-align">
+				<h4>
+					<b>SKYLAH</b> - An Intelligent Chatbot
+				</h4>
+				<p class="flow-text grey-text text-darken-1">This app helps in diagnosis of depression in a duplex, text based environment</p>
+				<br>
+				<div class="col s6">
+					<a style="width:150px; border-radius:3px; letter-spacing:1.5px" href="/register" class="btn btn-large waves-effect blue accent-3 hoverable black-white">Register</a>
+				</div>
+				<div class="col s6">
+					<a style="width:150px; border-radius:3px; letter-spacing:1.5px" href="/login" class="btn btn-large waves-effect white hoverable black-text">Log In</a>
+				</div>
+            </div> 
+        </div>
+    </div>
+{% endblock %}

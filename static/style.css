@@ -1,0 +1,48 @@
+.fa {
+    padding: 20px;
+    font-size: 30px;
+    width: 30px;
+    text-align: center;
+    text-decoration: none;
+  }
+  
+  /* Add a hover effect if you want */
+  .fa:hover {
+    opacity: 0.7;
+  }
+  
+  /* Set a specific color for each brand */
+  
+  /* Facebook */
+  .fa-facebook {
+    background: #3B5998;
+    color: white;
+  }
+  
+  /* Twitter */
+  .fa-twitter {
+    background: #55ACEE;
+    color: white;
+  }
+
+  /* Instagram */
+  .fa-twitter {
+    background: #55ACEE;
+    color: white;
+  }
+
+.custom-button {
+  color: white;
+  width:150px;
+  border-radius: 3px;
+  letter-spacing: 1.5px;
+  margin-top: 1rem;
+}
+
+.button-chat {
+  color: white;
+  width:150px;
+  border-radius: 50%;
+  letter-spacing: 1.5px;
+  margin-top: 1rem;
+}
