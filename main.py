@@ -9,6 +9,7 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from datetime import datetime
 from markupsafe import Markup
 import asyncio
+import pickle
 # ==============================================================================
 import logging
 import random
@@ -150,56 +151,29 @@ def sample_sequence(personality, history, tokenizer, model, args, current_output
 
     return current_output
 
-async def prepare_chatbot():
-    print("Starting to prepare chatbot")
-    parser = ArgumentParser()
-    parser.add_argument("--dataset_path", type=str, default="", help="Path or url of the dataset. If empty download from S3.")
-    parser.add_argument("--dataset_cache", type=str, default='./dataset_cache', help="Path or url of the dataset cache")
-    parser.add_argument("--model", type=str, default="gpt", help="Model type (gpt or gpt2)")
-    parser.add_argument("--model_checkpoint", type=str, default="finetuned_chatbot_gpt/", help="Path, url or short name of the model")
-    parser.add_argument("--max_history", type=int, default=2, help="Number of previous utterances to keep in history")
-    parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device (cuda or cpu)")
+def loader():
+    f = open("personality.pickle", 'rb')
+    personality = pickle.load(f)
+    f.close()
 
-    parser.add_argument("--no_sample", action='store_true', help="Set to use greedy decoding instead of sampling")
-    parser.add_argument("--max_length", type=int, default=20, help="Maximum length of the output utterances")
-    parser.add_argument("--min_length", type=int, default=1, help="Minimum length of the output utterances")
-    parser.add_argument("--seed", type=int, default=42, help="Seed")
-    parser.add_argument("--temperature", type=int, default=0.7, help="Sampling softmax temperature")
-    parser.add_argument("--top_k", type=int, default=0, help="Filter top-k tokens before sampling (<=0: no filtering)")
-    parser.add_argument("--top_p", type=float, default=0.9, help="Nucleus filtering (top-p) before sampling (<=0.0: no filtering)")
-    args = parser.parse_args()
+    f = open("model.pickle", 'rb')
+    model = pickle.load(f)
+    f.close()
 
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__file__)
-    logger.info(pformat(args))
+    f = open("tokenizer.pickle", 'rb')
+    tokenizer = pickle.load(f)
+    f.close()
 
-    if args.model_checkpoint == "":
-        args.model_checkpoint = download_pretrained_model()
-        #print("Did Not Worked, Bitch!")
+    f = open("args.pickle", 'rb')
+    args = pickle.load(f)
+    f.close()
 
-    random.seed(args.seed)
-    torch.random.manual_seed(args.seed)
-    torch.cuda.manual_seed(args.seed)
+    return personality, model, tokenizer, args
+# ===================================================================================
 
-    logger.info("Get pretrained model and tokenizer")
-    tokenizer_class = GPT2Tokenizer if "gpt2" == args.model else OpenAIGPTTokenizer
-    tokenizer = tokenizer_class.from_pretrained(args.model_checkpoint)
-    model_class = GPT2LMHeadModel if "gpt2" == args.model else OpenAIGPTLMHeadModel
-    model = model_class.from_pretrained(args.model_checkpoint)
+def chat_run(raw_text):
 
-    model.to(args.device)
-    model.eval()
-
-    logger.info("Sample a personality")
-    personalities = get_dataset_personalities(tokenizer, args.dataset_path, args.dataset_cache)
-    print("Type of personalities-> ", type(personalities))
-    personality = random.choice(personalities)
-    logger.info("Selected personality: %s", tokenizer.decode(chain(*personality)))
-    print("Preprations Complete")
-    #await asyncio.sleep()
-    return personality, tokenizer, model, args
-
-def chat_run(raw_text, personality, tokenizer, model, args):
+    personality, model, tokenizer, args = loader()
 
     history = []
 
@@ -282,13 +256,11 @@ def logout():
 @login_required
 def chat():
     chat_form = ChatForm()
-    #personality, tokenizer, model, args = asyncio.run(prepare_chatbot())
-    #render_template("wait.html")
     if request.method == 'POST':
         user_input = chat_form.chatInput.data
         print(user_input)
-        #reply = chat_run(user_input, personality, tokenizer, model, args)
-        #print(reply)
+        reply = chat_run(user_input)
+        print(reply)
     return render_template('chat.html', form=chat_form)
 
 
