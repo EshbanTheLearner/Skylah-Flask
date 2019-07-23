@@ -83,7 +83,7 @@ def sample_sequence(personality, history, tokenizer, model, args, current_output
         current_output.append(prev.item())
 
     return current_output
-
+'''
 def run():
     parser = ArgumentParser()
     parser.add_argument("--dataset_path", type=str, default="", help="Path or url of the dataset. If empty download from S3.")
@@ -149,3 +149,4 @@ def run():
 
 if __name__ == "__main__":
     run()
+'''

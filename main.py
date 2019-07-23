@@ -24,6 +24,13 @@ from pytorch_pretrained_bert import OpenAIGPTLMHeadModel, OpenAIGPTTokenizer, GP
 from train import SPECIAL_TOKENS, build_input_from_segments
 from utils import get_dataset_personalities, download_pretrained_model
 
+import  interact
+# ==============================================================================
+
+import tensorflow as tf
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+
+
 # ==============================================================================
 
 app = Flask(__name__)
@@ -75,96 +82,31 @@ class LoginForm(FlaskForm):
 	submit = SubmitField("Login")
 
 class ChatForm(FlaskForm):
+	chatReply = ''
+	newUser = True
 	#chatInput = StringField('Name', validators=[InputRequired()])
-    chatInput = TextAreaField('ChatInput')
+	chatInput = TextAreaField('ChatInput')
     #submit_value = Markup('<span class="oi oi-check" title="Submit"><i class="material-icons right">send</i></span>')
-    submit = SubmitField("Send")
+	submit = SubmitField("Send")
+
+# =====================================================================================
 
 # ======================================================================================
 
-def top_filtering(logits, top_k=0, top_p=0.0, threshold=-float('Inf'), filter_value=-float('Inf')):
-    """ Filter a distribution of logits using top-k, top-p (nucleus) and/or threshold filtering
-        Args:
-            logits: logits distribution shape (vocabulary size)
-            top_k: <=0: no filtering, >0: keep only top k tokens with highest probability.
-            top_p: <=0.0: no filtering, >0.0: keep only a subset S of candidates, where S is the smallest subset
-                whose total probability mass is greater than or equal to the threshold top_p.
-                In practice, we select the highest probability tokens whose cumulative probability mass exceeds
-                the threshold top_p.
-            threshold: a minimal threshold to keep logits
-    """
-    assert logits.dim() == 1  # Only work for batch size 1 for now - could update but it would obfuscate a bit the code
-    top_k = min(top_k, logits.size(-1))
-    if top_k > 0:
-        # Remove all tokens with a probability less than the last token in the top-k tokens
-        indices_to_remove = logits < torch.topk(logits, top_k)[0][..., -1, None]
-        logits[indices_to_remove] = filter_value
-
-    if top_p > 0.0:
-        # Compute cumulative probabilities of sorted tokens
-        sorted_logits, sorted_indices = torch.sort(logits, descending=True)
-        cumulative_probabilities = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
-
-        # Remove tokens with cumulative probability above the threshold
-        sorted_indices_to_remove = cumulative_probabilities > top_p
-        # Shift the indices to the right to keep also the first token above the threshold
-        sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
-        sorted_indices_to_remove[..., 0] = 0
-
-        # Back to unsorted indices and set them to -infinity
-        indices_to_remove = sorted_indices[sorted_indices_to_remove]
-        logits[indices_to_remove] = filter_value
-
-    indices_to_remove = logits < threshold
-    logits[indices_to_remove] = filter_value
-
-    return logits
-
-
-def sample_sequence(personality, history, tokenizer, model, args, current_output=None):
-    special_tokens_ids = tokenizer.convert_tokens_to_ids(SPECIAL_TOKENS)
-    if current_output is None:
-        current_output = []
-
-    for i in range(args.max_length):
-        instance, sequence = build_input_from_segments(personality, history, current_output, tokenizer, with_eos=False)
-
-        input_ids = torch.tensor(instance["input_ids"], device=args.device).unsqueeze(0)
-        token_type_ids = torch.tensor(instance["token_type_ids"], device=args.device).unsqueeze(0)
-
-        logits = model(input_ids, token_type_ids=token_type_ids)
-
-        if "gpt2" == args.model:
-            logits = logits[0]
-        logits = logits[0, -1, :] / args.temperature
-        logits = top_filtering(logits, top_k=args.top_k, top_p=args.top_p)
-        probs = F.softmax(logits, dim=-1)
-
-        prev = torch.topk(probs, 1)[1] if args.no_sample else torch.multinomial(probs, 1)
-        if i < args.min_length and prev.item() in special_tokens_ids:
-            while prev.item() in special_tokens_ids:
-                prev = torch.multinomial(probs, num_samples=1)
-
-        if prev.item() in special_tokens_ids:
-            break
-        current_output.append(prev.item())
-
-    return current_output
-
 def loader():
-    f = open("personality.pickle", 'rb')
+    f = open("checkpoints/personality.pickle", 'rb')
     personality = pickle.load(f)
     f.close()
 
-    f = open("model.pickle", 'rb')
+    f = open("checkpoints/model.pickle", 'rb')
     model = pickle.load(f)
     f.close()
 
-    f = open("tokenizer.pickle", 'rb')
+    f = open("checkpoints/tokenizer.pickle", 'rb')
     tokenizer = pickle.load(f)
     f.close()
 
-    f = open("args.pickle", 'rb')
+    f = open("checkpoints/args.pickle", 'rb')
     args = pickle.load(f)
     f.close()
 
@@ -176,16 +118,23 @@ def chat_run(raw_text):
     personality, model, tokenizer, args = loader()
 
     history = []
+    inputs = []
+    outputs = []
+
+    inputs.append(raw_text)
 
     if raw_text.lower() == 'bye':
         print("Take care. Bye!")
 
     history.append(tokenizer.encode(raw_text))
     with torch.no_grad():
-        out_ids = sample_sequence(personality, history, tokenizer, model, args)
+        out_ids = interact.sample_sequence(personality, history, tokenizer, model, args)
     history.append(out_ids)
     history = history[-(2*args.max_history+1):]
     out_text = tokenizer.decode(out_ids, skip_special_tokens=True)
+
+    outputs.append(out_text)
+
     return out_text
     
    
@@ -252,16 +201,92 @@ def logout():
 	logout_user()
 	return redirect(url_for('login'))
 
+global userInput, bot_response
+
+userInput = list()
+bot_response = list()
+
+u = ['Hi', 'How are you?', 'What are you doing?', 
+'Ah, okay!', 'I am unemployed actually', 
+"I always stay at home. I know it is bad for health but who even cares about me!", 
+"I had a dog, it's dead now. I loved it so much!", 
+"Nah. Not really. My job takes a lot of time. It's so boring!"]
+
+b = ['Hello', 'I am fine and you?', 'Nothing exciting actually!', 
+'What do you do for a living?', 'That is sad to hear', 
+"I always stay at home. I know it is bad for health but who even cares about me!", 
+"I had a dog, it's dead now. I loved it so much!", 
+"Nah. Not really. My job takes a lot of time. It's so boring!"]
+
+for _ in u:
+	userInput.append(_)
+
+for _ in b:
+	bot_response.append(_)
+
 @app.route('/chat', methods=['GET', 'POST'])
 @login_required
 def chat():
-    chat_form = ChatForm()
-    if request.method == 'POST':
-        user_input = chat_form.chatInput.data
-        print(user_input)
-        reply = chat_run(user_input)
-        print(reply)
-    return render_template('chat.html', form=chat_form)
+	chat_form = ChatForm()
+	if request.method == 'POST':
+		user_input = chat_form.chatInput.data
+		print(user_input)
+		userInput.append(user_input)
+		#print(len(userInput))
+		reply = chat_run(user_input)
+		print(reply)
+		bot_response.append(reply)
+		#print(len(bot_response))
+	chat_form.chatInput.data = ''
+	return render_template('chat-1.html', form=chat_form, inputs=userInput, responses=bot_response)
+
+def lookup(value):
+	data = {0:"Happy", 1:"Happy", 2:"Happy", 3:"Quite Happy", 4:"Not Depressed", 5:"Not Depressed", 
+	6:"Mildly Depressed", 7:"Mildly Depressed", 8:"Depressed", 9:"Highly Depressed"}
+
+	value = round(value,1)*10
+	print("VALUE->", value)
+	if value in data:
+		label = data[value]
+
+	return label
+
+def depression_detect(results):
+	act_result = []
+	labels = []
+	cumm_score = 0
+
+	for result in results:
+		for _ in result:
+			cumm_score = cumm_score + _ 
+			act_result.append(round(_, 2))
+			labels.append(lookup(_))
+	cumm_score = cumm_score/len(act_result)
+	return act_result, labels, cumm_score
+
+@app.route('/report', methods=['GET'])
+@login_required
+def report():
+    f = open("checkpoints/classifier.pickle", 'rb')
+    clf = pickle.load(f)
+    f.close()
+
+    f = open("checkpoints/clf_tokenizer.pickle", 'rb')
+    tokenizer_obj = pickle.load(f)
+    f.close()
+
+    test_samples_tokens = tokenizer_obj.texts_to_sequences(userInput)
+    test_samples_tokens_pad = pad_sequences(test_samples_tokens, maxlen=100)
+
+    results = clf.predict(x=test_samples_tokens_pad)
+    results = results.tolist()
+    results_, labels, score = depression_detect(results)
+    verdict = lookup(score)
+    return render_template('report.html', results = results_, labels=labels, score=score, verdict=verdict)
+
+@login_manager.unauthorized_handler
+def unauthorized_handler():
+    return 'Unauthorized'
 
 
 if __name__ == '__main__':

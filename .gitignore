@@ -4,4 +4,4 @@ README.md
 dataset_cache_OpenAIGPTTokenizer
 /finetuned_chatbot_gpt/*
 /__pycache__/*
-*.pickle
+/checkpoints/*
