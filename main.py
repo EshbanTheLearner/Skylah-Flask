@@ -76,12 +76,16 @@ def load_user(user_id):
 class RegisterationForm(FlaskForm):
 	name = StringField('Name', validators=[InputRequired(), Length(max=50)])
 
-	email = EmailField('Email', validators=[DataRequired(), 
-	Email()])
+	email = EmailField('Email', validators=[DataRequired(), Email()])
+
+	errors_email = []
 	
-	password = PasswordField('Password', validators=[InputRequired(), EqualTo('confirm', message='Passwords must match'), Length(min=8, max=20)])
+	password = PasswordField('Password', validators=[InputRequired(), 
+	EqualTo('confirm', message='Passwords must match'), Length(min=8, max=20)])
 
 	confirm = PasswordField('Confirm Password')
+
+	errors_confirm_password = []
 
 	submit = SubmitField("Sign Up")
 
@@ -89,8 +93,12 @@ class LoginForm(FlaskForm):
 	email = EmailField('Email', validators=[DataRequired(), 
 	Email()])
 
+	errors_email = []
+
 	password = PasswordField('Password', validators=[InputRequired(), 
 	Length(min=8, max=20)])
+
+	errors_password = []
 
 	submit = SubmitField("Login")
 
@@ -172,19 +180,20 @@ def join():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
 	form = RegisterationForm()
-	#print('Formed Initialized')
-	#print(form.data)
-	#print("Register: ", request.query_string)
-	#print(request.method)
+	form.errors_email = []
+	form.errors_confirm_password = []
 	if request.method == 'POST':
 		if form.validate():
 			existing_user = User.objects(email=form.email.data).first()
 			if existing_user is None:
-				hashpass = generate_password_hash(form.password.data, method='sha256')
-				print(form.email.data)
-				user = User(form.name.data, form.email.data, hashpass).save()
+				hashed_password = generate_password_hash(form.password.data, method='sha256')
+				user = User(form.name.data, form.email.data, hashed_password).save()
 				login_user(user)
 				return redirect(url_for('dashboard'))
+			else:
+				form.errors_email.append("Email already exists")
+		else:
+			form.errors_confirm_password.append("Passwords must match")
 	return render_template('/register.html', form=form)
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -192,7 +201,8 @@ def login():
 	if current_user.is_authenticated == True:
 		return redirect(url_for('dashboard'))
 	form = LoginForm(request.form)
-	#print(request.method)
+	form.errors_email = []
+	form.errors_password = []
 	if request.method == 'POST':
 		if form.validate():
 			check_user = User.objects(email = form.email.data).first()
@@ -202,6 +212,10 @@ def login():
 					g.user = check_user
 					print(g.user.name)
 					return redirect(url_for('dashboard'))
+				else:
+					form.errors_password.append("Inccorect password")
+			else:
+				form.errors_email.append("Email not registered")
 	return render_template('login.html', form=form)
 
 @app.route('/dashboard')
