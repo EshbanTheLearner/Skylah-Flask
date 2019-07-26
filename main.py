@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, g
 from flask_mongoengine import MongoEngine, Document
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, TextAreaField
@@ -7,8 +7,6 @@ from wtforms.validators import Email, Length, InputRequired, EqualTo, DataRequir
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from datetime import datetime
-from markupsafe import Markup
-import asyncio
 import pickle
 # ==============================================================================
 import logging
@@ -56,6 +54,21 @@ class User(UserMixin, db.Document):
 	password = db.StringField()
 	#confirm = db.StringField()
 
+'''
+class Session(db.Document):
+	meta:{'collection': 'Session'}
+	startTime = db.DateTimeField()
+	endTime = db.DateTimeField()
+
+class Chat(db.Document):
+	meta = {'collection':'Chat'}
+	message = db.StringField(max_length=100)
+	message_time = db.DateTimeField()
+	response = db.StringField(max_length=100)
+	response_time = db.DateTimeField()
+'''
+# ==============================================================================
+
 @login_manager.user_loader
 def load_user(user_id):
 	return User.objects(pk=user_id).first()
@@ -86,7 +99,6 @@ class ChatForm(FlaskForm):
 	newUser = True
 	#chatInput = StringField('Name', validators=[InputRequired()])
 	chatInput = TextAreaField('ChatInput')
-    #submit_value = Markup('<span class="oi oi-check" title="Submit"><i class="material-icons right">send</i></span>')
 	submit = SubmitField("Send")
 
 # =====================================================================================
@@ -187,6 +199,8 @@ def login():
 			if check_user is not None:
 				if check_password_hash(check_user['password'], form.password.data):
 					login_user(check_user)
+					g.user = check_user
+					print(g.user.name)
 					return redirect(url_for('dashboard'))
 	return render_template('login.html', form=form)
 
@@ -282,11 +296,15 @@ def report():
     results = results.tolist()
     results_, labels, score = depression_detect(results)
     verdict = lookup(score)
-    return render_template('report.html', results = results_, labels=labels, score=score, verdict=verdict)
+    return render_template('report.html', results = results_, userInput=userInput, labels=labels, score=score, verdict=verdict)
 
 @login_manager.unauthorized_handler
 def unauthorized_handler():
     return 'Unauthorized'
+
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template('404.html'), 404
 
 
 if __name__ == '__main__':

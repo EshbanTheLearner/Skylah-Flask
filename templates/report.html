@@ -11,7 +11,7 @@
                 <p class="flow-text grey-text text-darken-1">
                     <ul>
                         {% for result in results %}
-                            <li> {{ result }} -> {{ labels[loop.index0] }}</li>
+                            <li> {{ userInput[loop.index0] }} -> {{ result }} -> {{ labels[loop.index0] }}</li>
                         {% endfor %}
                     </ul>
                     <h3>Cummulative Score: {{ score }}</h3>

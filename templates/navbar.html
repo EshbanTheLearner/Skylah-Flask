@@ -27,9 +27,18 @@
 				<a href="#" data-target="mobile-demo" class="sidenav-trigger"><i class="material-icons black-text">menu</i></a>
 				<a href="/" class="brand-logo center black-text"><b><i class="material-icons">code</i>SKYLAH</b></a>
 				<ul id="nav-mobile" class="right hide-on-med-and-down">
-					<li>
-						<a href="/" class="black-text waves-effect waves-light lighten-1">Home</a>
-					</li>
+					{% if current_user.is_authenticated %}
+						<li>
+							<a href="/dashboard" class="black-text waves-effect waves-light lighten-1">Home</a>
+						</li>
+						<li>
+							<a href="/report" class="black-text waves-effect waves-light lighten-1">Report</a>
+						</li>
+					{% else %}
+						<li>
+							<a href="/" class="black-text waves-effect waves-light lighten-1">Home</a>
+						</li>
+					{% endif %}
 					<li>
 						<a href="/objective" class="black-text waves-effect waves-light lighten-1">Objective</a>
 					</li>					
@@ -44,7 +53,12 @@
 		</nav>
 	</div>
 	<ul class="sidenav white" id="mobile-demo">
+		{% if current_user.is_authenticated %}
+			<li><a href="/dashboard">Home</a></li>
+			<li><a href="/report">Report</a></li>		
+		{% else %}
 			<li><a href="/">Home</a></li>
+		{% endif %}
 			<li><a href="/objective">Objective</a></li>
 			<li><a href="/about">About Us</a></li>
 			<li><a href="/join">Join Us</a></li>
