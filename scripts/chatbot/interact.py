@@ -12,10 +12,26 @@ import torch
 import torch.nn.functional as F
 
 from pytorch_pretrained_bert import OpenAIGPTLMHeadModel, OpenAIGPTTokenizer, GPT2LMHeadModel, GPT2Tokenizer
-from train import SPECIAL_TOKENS, build_input_from_segments
-from utils import get_dataset_personalities, download_pretrained_model
+#from train import SPECIAL_TOKENS, build_input_from_segments
+#from utils import get_dataset_personalities, download_pretrained_model
 
-import pickle
+SPECIAL_TOKENS = ["<bos>", "<eos>", "<speaker1>", "<speaker2>", "<pad>"]
+
+def build_input_from_segments(persona, history, reply, tokenizer, lm_labels=False, with_eos=True):
+    """ Build a sequence of input from 3 segments: persona, history and last reply """
+    bos, eos, speaker1, speaker2 = tokenizer.convert_tokens_to_ids(SPECIAL_TOKENS[:-1])
+
+    instance = {}
+    sequence = [[bos] + list(chain(*persona))] + history + [reply + ([eos] if with_eos else [])]
+    sequence = [sequence[0]] + [[speaker2 if (len(sequence)-i) % 2 else speaker1] + s for i, s in enumerate(sequence[1:])]
+
+    instance["input_ids"] = list(chain(*sequence))
+    instance["token_type_ids"] = [speaker2 if i % 2 else speaker1 for i, s in enumerate(sequence) for _ in s]
+    instance["mc_token_ids"] = len(instance["input_ids"]) - 1
+    instance["lm_labels"] = [-1] * len(instance["input_ids"])
+    if lm_labels:
+        instance["lm_labels"] = ([-1] * sum(len(s) for s in sequence[:-1])) + [-1] + sequence[-1][1:]
+    return instance, sequence
 
 def top_filtering(logits, top_k=0, top_p=0.0, threshold=-float('Inf'), filter_value=-float('Inf')):
     """ Filter a distribution of logits using top-k, top-p (nucleus) and/or threshold filtering
@@ -62,7 +78,7 @@ def sample_sequence(personality, history, tokenizer, model, args, current_output
         current_output = []
 
     for i in range(args.max_length):
-        instance, sequence = build_input_from_segments(personality, history, current_output, tokenizer, with_eos=False)
+        instance, _ = build_input_from_segments(personality, history, current_output, tokenizer, with_eos=False)
 
         input_ids = torch.tensor(instance["input_ids"], device=args.device).unsqueeze(0)
         token_type_ids = torch.tensor(instance["token_type_ids"], device=args.device).unsqueeze(0)
@@ -85,21 +101,21 @@ def sample_sequence(personality, history, tokenizer, model, args, current_output
         current_output.append(prev.item())
 
     return current_output
-
-def prepare_chatbot():
+'''
+def run():
     parser = ArgumentParser()
     parser.add_argument("--dataset_path", type=str, default="", help="Path or url of the dataset. If empty download from S3.")
     parser.add_argument("--dataset_cache", type=str, default='./dataset_cache', help="Path or url of the dataset cache")
     parser.add_argument("--model", type=str, default="gpt", help="Model type (gpt or gpt2)")
     parser.add_argument("--model_checkpoint", type=str, default="finetuned_chatbot_gpt/", help="Path, url or short name of the model")
-    parser.add_argument("--max_history", type=int, default=10, help="Number of previous utterances to keep in history")
+    parser.add_argument("--max_history", type=int, default=2, help="Number of previous utterances to keep in history")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu", help="Device (cuda or cpu)")
 
     parser.add_argument("--no_sample", action='store_true', help="Set to use greedy decoding instead of sampling")
-    parser.add_argument("--max_length", type=int, default=30, help="Maximum length of the output utterances")
+    parser.add_argument("--max_length", type=int, default=20, help="Maximum length of the output utterances")
     parser.add_argument("--min_length", type=int, default=1, help="Minimum length of the output utterances")
     parser.add_argument("--seed", type=int, default=42, help="Seed")
-    parser.add_argument("--temperature", type=int, default=1.0, help="Sampling softmax temperature")
+    parser.add_argument("--temperature", type=int, default=0.7, help="Sampling softmax temperature")
     parser.add_argument("--top_k", type=int, default=0, help="Filter top-k tokens before sampling (<=0: no filtering)")
     parser.add_argument("--top_p", type=float, default=0.9, help="Nucleus filtering (top-p) before sampling (<=0.0: no filtering)")
     args = parser.parse_args()
@@ -109,8 +125,8 @@ def prepare_chatbot():
     logger.info(pformat(args))
 
     if args.model_checkpoint == "":
-        #args.model_checkpoint = download_pretrained_model()
-        print("Did Not Worked, Bitch!")
+        args.model_checkpoint = download_pretrained_model()
+        #print("Did Not Worked, Bitch!")
 
     random.seed(args.seed)
     torch.random.manual_seed(args.seed)
@@ -131,29 +147,24 @@ def prepare_chatbot():
     personality = random.choice(personalities)
     logger.info("Selected personality: %s", tokenizer.decode(chain(*personality)))
 
-    return personality, model, tokenizer, args
+    history = []
+    while True:
+        raw_text = input(">>> ")
+        if raw_text.lower() == 'bye':
+            print("Skylah: Take care of yourslef, bye!")
+            break
+        while not raw_text:
+            print('Prompt should not be empty!')
+            raw_text = input(">>> ")
+        history.append(tokenizer.encode(raw_text))
+        with torch.no_grad():
+            out_ids = sample_sequence(personality, history, tokenizer, model, args)
+        history.append(out_ids)
+        history = history[-(2*args.max_history+1):]
+        out_text = tokenizer.decode(out_ids, skip_special_tokens=True)
+        print("Skylah: ", out_text)
 
 
-print("Running...")
-global PERSONALITY, MODEL, TOKENIZER, ARGS
-PERSONALITY, MODEL, TOKENIZER, ARGS = prepare_chatbot()
-
-print("Saving...")
-
-f = open('personality.pickle', 'wb')
-pickle.dump(PERSONALITY, f)
-f.close()
-
-f = open('model.pickle', 'wb')
-pickle.dump(MODEL, f)
-f.close()
-
-f = open('tokenizer.pickle', 'wb')
-pickle.dump(TOKENIZER, f)
-f.close()
-
-f = open('args.pickle', 'wb')
-pickle.dump(ARGS, f)
-f.close()
-
-print("Done!")
+if __name__ == "__main__":
+    run()
+'''

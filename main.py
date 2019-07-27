@@ -9,20 +9,9 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from datetime import datetime
 import pickle
 # ==============================================================================
-import logging
-import random
-from argparse import ArgumentParser
-from itertools import chain
-from pprint import pformat
 
-import torch
-import torch.nn.functional as F
+from app.chatbot.chatbot import sample_sequence, top_filtering, loader, chat_run
 
-from pytorch_pretrained_bert import OpenAIGPTLMHeadModel, OpenAIGPTTokenizer, GPT2LMHeadModel, GPT2Tokenizer
-from train import SPECIAL_TOKENS, build_input_from_segments
-from utils import get_dataset_personalities, download_pretrained_model
-
-import  interact
 # ==============================================================================
 
 import tensorflow as tf
@@ -31,14 +20,17 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 # ==============================================================================
 
+import config
+
+# ==============================================================================
 app = Flask(__name__)
 
-app.config['MONGODB_SETTINGS'] = {
-	'db': 'skylah-flask',
-	'username': 'eshban',
-	'password': 'Mettagross1',
-	'host': 'mongodb://eshban:Mettagross1@ds221115.mlab.com:21115/skylah-flask'
-}
+app.config['MONGODB_SETTINGS'] = config.db_credentials
+
+# IMPORTANT TODOS
+'''
+Managing database objects seperatly
+'''
 
 db = MongoEngine(app)
 app.config['SECRET_KEY'] = 'our-secret-key'
@@ -108,56 +100,6 @@ class ChatForm(FlaskForm):
 	#chatInput = StringField('Name', validators=[InputRequired()])
 	chatInput = TextAreaField('ChatInput')
 	submit = SubmitField("Send")
-
-# =====================================================================================
-
-# ======================================================================================
-
-def loader():
-    f = open("checkpoints/personality.pickle", 'rb')
-    personality = pickle.load(f)
-    f.close()
-
-    f = open("checkpoints/model.pickle", 'rb')
-    model = pickle.load(f)
-    f.close()
-
-    f = open("checkpoints/tokenizer.pickle", 'rb')
-    tokenizer = pickle.load(f)
-    f.close()
-
-    f = open("checkpoints/args.pickle", 'rb')
-    args = pickle.load(f)
-    f.close()
-
-    return personality, model, tokenizer, args
-# ===================================================================================
-
-def chat_run(raw_text):
-
-    personality, model, tokenizer, args = loader()
-
-    history = []
-    inputs = []
-    outputs = []
-
-    inputs.append(raw_text)
-
-    if raw_text.lower() == 'bye':
-        print("Take care. Bye!")
-
-    history.append(tokenizer.encode(raw_text))
-    with torch.no_grad():
-        out_ids = interact.sample_sequence(personality, history, tokenizer, model, args)
-    history.append(out_ids)
-    history = history[-(2*args.max_history+1):]
-    out_text = tokenizer.decode(out_ids, skip_special_tokens=True)
-
-    outputs.append(out_text)
-
-    return out_text
-    
-   
 
 # ======================================================================================
 
@@ -295,11 +237,11 @@ def depression_detect(results):
 @app.route('/report', methods=['GET'])
 @login_required
 def report():
-    f = open("checkpoints/classifier.pickle", 'rb')
+    f = open("models/classifier/classifier.pickle", 'rb')
     clf = pickle.load(f)
     f.close()
 
-    f = open("checkpoints/clf_tokenizer.pickle", 'rb')
+    f = open("models/classifier/clf_tokenizer.pickle", 'rb')
     tokenizer_obj = pickle.load(f)
     f.close()
 
