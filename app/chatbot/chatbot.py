@@ -36,7 +36,9 @@ def chat_run(raw_text):
     inputs.append(raw_text)
 
     if raw_text.lower() == 'bye':
-        print("Take care. Bye!")
+        r = "Take care. Bye!"
+        #print(r)
+        return r
 
     history.append(tokenizer.encode(raw_text))
     with torch.no_grad():

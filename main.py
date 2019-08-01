@@ -17,7 +17,6 @@ from app.chatbot.chatbot import sample_sequence, top_filtering, loader, chat_run
 import tensorflow as tf
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
-
 # ==============================================================================
 
 import config
@@ -33,20 +32,57 @@ Managing database objects seperatly
 '''
 
 db = MongoEngine(app)
+#db = MongoEngine()
 app.config['SECRET_KEY'] = 'our-secret-key'
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+login_manager.session_protection = "strong"
 print('Succesfully connected to MongoDB')
+
+class Chat(db.Document):
+	meta = {'collection': 'Chat'}
+	message = db.ListField(db.StringField())
+	response = db.ListField(db.StringField())
+	message_time = db.ListField(db.StringField())
+	response_time = db.ListField(db.StringField())
+
+class Session(db.EmbeddedDocument):
+	meta = {'collection': 'Session'}
+	start_time = db.StringField()
+	end_time = db.StringField()
+	chat = db.ReferenceField(Chat)
 
 class User(UserMixin, db.Document):
 	meta = {'collection': 'User'}
 	name = db.StringField(max_length=50)
 	email = db.StringField(max_length=30)
 	password = db.StringField()
-	#confirm = db.StringField()
+	session = db.EmbeddedDocumentListField(Session)
 
 '''
+class Chat(db.EmbeddedDocument):
+	#meta = {'collection': 'Chat'}
+	message = db.ListField(db.StringField())
+	response = db.ListField(db.StringField())
+	message_time = db.ListField(db.StringField())
+	response_time = db.ListField(db.StringField())
+
+class Session(db.EmbeddedDocument):
+	#meta = {'collection': 'Session'}
+	start_time = db.DateTimeField()
+	end_time = db.DateTimeField()
+	chat = db.EmbeddedDocumentListField(Chat)
+
+class User(UserMixin, db.Document):
+	meta = {'collection': 'User'}
+	name = db.StringField(max_length=50)
+	email = db.StringField(max_length=30)
+	password = db.StringField()
+	session = db.EmbeddedDocumentListField(Session)
+	#confirm = db.StringField()
+
+
 class Session(db.Document):
 	meta:{'collection': 'Session'}
 	startTime = db.DateTimeField()
@@ -129,7 +165,41 @@ def register():
 			existing_user = User.objects(email=form.email.data).first()
 			if existing_user is None:
 				hashed_password = generate_password_hash(form.password.data, method='sha256')
+
+				#chat = Chat(message=list(), response=list(), message_time=list(), response_time=list()).save()
+				'''
+				chat.message = []
+				chat.response = []
+				chat.response_time = []
+				chat.message_time = []
+				'''
+				#print(chat.to_json(indent=2))
+				#print(type(chat))
+				#session = Session()
+				#session.chat.append(chat)
+				#session.save()
+				'''
+				session.start_time = None
+				session.end_time = None
+				session.chat.append(chat)
+				'''
+				#print(session.to_json(indent=2))
+
 				user = User(form.name.data, form.email.data, hashed_password).save()
+				#user.session.append(session)
+				#user.save()
+				'''
+				user.name = form.name.data
+				user.email = form.email.data
+				user.password = hashed_password
+				user.session.append(session)
+				print(user.to_json(indent=2))
+				user.save()
+				
+				User(form.data.name, form.email.data, hashed_password, Session(start_time, end_time, 
+				Chat(message=list(), response=list(), message_time=list(), response_time=list()))).save()
+				'''
+				#user = User(form.name.data, form.email.data, hashed_password).save()
 				login_user(user)
 				return redirect(url_for('dashboard'))
 			else:
@@ -171,45 +241,76 @@ def logout():
 	logout_user()
 	return redirect(url_for('login'))
 
-global userInput, bot_response
-
-userInput = list()
-bot_response = list()
-
-u = ['Hi', 'How are you?', 'What are you doing?', 
-'Ah, okay!', 'I am unemployed actually', 
-"I always stay at home. I know it is bad for health but who even cares about me!", 
-"I had a dog, it's dead now. I loved it so much!", 
-"Nah. Not really. My job takes a lot of time. It's so boring!"]
-
-b = ['Hello', 'I am fine and you?', 'Nothing exciting actually!', 
-'What do you do for a living?', 'That is sad to hear', 
-"I always stay at home. I know it is bad for health but who even cares about me!", 
-"I had a dog, it's dead now. I loved it so much!", 
-"Nah. Not really. My job takes a lot of time. It's so boring!"]
-
-for _ in u:
-	userInput.append(_)
-
-for _ in b:
-	bot_response.append(_)
+messages = []
+messages_time = []
+responses = []
+responses_time = []
+start_time = ''
+end_time = ''
 
 @app.route('/chat', methods=['GET', 'POST'])
 @login_required
 def chat():
+	break_op = False
+	#session = Session()
+	start_time = str(datetime.now())
+
+	#chat = Chat()
+
 	chat_form = ChatForm()
+
+	if request.method == 'POST':
+		m_t = str(datetime.now())
+		messages_time.append(m_t)
+
+		user_input = chat_form.chatInput.data
+		messages.append(user_input)
+
+		if user_input.lower() == 'bye':
+			end_time = str(datetime.now())
+			break_op = True
+
+		print(m_t, " : ", user_input)
+		reply = chat_run(user_input)
+		r_t = str(datetime.now())
+		responses_time.append(r_t)
+
+		print(r_t, " : ", reply)
+		responses.append(reply)
+
+	if break_op:
+		session = Session()
+		chat = Chat()
+		chat.message = messages
+		chat.message_time = messages_time
+		chat.response = responses
+		chat.response_time = responses_time
+		chat.save()
+		session.start_time = start_time
+		session.end_time = end_time
+		session.chat = chat
+		current_user.session.append(session)
+		current_user.save()
+		return redirect(url_for('dashboard'))
+	chat_form.chatInput.data = ''
+	return render_template('chat-1.html', form=chat_form, inputs=messages, responses=responses)
+
+
+'''
 	if request.method == 'POST':
 		user_input = chat_form.chatInput.data
 		print(user_input)
+		messages.append(user_input)
 		userInput.append(user_input)
 		#print(len(userInput))
 		reply = chat_run(user_input)
 		print(reply)
+		responses.append(reply)
 		bot_response.append(reply)
 		#print(len(bot_response))
 	chat_form.chatInput.data = ''
 	return render_template('chat-1.html', form=chat_form, inputs=userInput, responses=bot_response)
-
+'''
 def lookup(value):
 	data = {0:"Happy", 1:"Happy", 2:"Happy", 3:"Quite Happy", 4:"Not Depressed", 5:"Not Depressed", 
 	6:"Mildly Depressed", 7:"Mildly Depressed", 8:"Depressed", 9:"Highly Depressed"}
