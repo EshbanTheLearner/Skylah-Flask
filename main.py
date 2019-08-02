@@ -8,11 +8,12 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from datetime import datetime
 import pickle
+from whitenoise import WhiteNoise
 # ==============================================================================
 
 from app.chatbot.chatbot import sample_sequence, top_filtering, loader, chat_run
 
-# ==============================================================================
+# ========================{{ form.chatInput(class_="materialize-textarea") }}======================================================
 
 import tensorflow as tf
 from tensorflow.keras.preprocessing.sequence import pad_sequences
@@ -23,7 +24,7 @@ import config
 
 # ==============================================================================
 app = Flask(__name__)
-
+app.wsgi_app = WhiteNoise(app.wsgi_app, root='static/')
 app.config['MONGODB_SETTINGS'] = config.db_credentials
 
 # IMPORTANT TODOS
@@ -293,7 +294,7 @@ def chat():
 		current_user.save()
 		return redirect(url_for('dashboard'))
 	chat_form.chatInput.data = ''
-	return render_template('chat-1.html', form=chat_form, inputs=messages, responses=responses)
+	return render_template('chat.html', form=chat_form, inputs=messages, responses=responses)
 
 
 '''
