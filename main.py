@@ -9,11 +9,13 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from datetime import datetime
 import pickle
 from whitenoise import WhiteNoise
+
+from app.chatbot.response_generation import generate_unique_response
 # ==============================================================================
 
-from app.chatbot.chatbot import sample_sequence, top_filtering, loader, chat_run
+#from app.chatbot.chatbot import sample_sequence, top_filtering, loader, chat_run
 
-# ========================{{ form.chatInput(class_="materialize-textarea") }}======================================================
+# ==============================================================================
 
 import tensorflow as tf
 from tensorflow.keras.preprocessing.sequence import pad_sequences
@@ -61,41 +63,6 @@ class User(UserMixin, db.Document):
 	password = db.StringField()
 	session = db.EmbeddedDocumentListField(Session)
 
-'''
-class Chat(db.EmbeddedDocument):
-	#meta = {'collection': 'Chat'}
-	message = db.ListField(db.StringField())
-	response = db.ListField(db.StringField())
-	message_time = db.ListField(db.StringField())
-	response_time = db.ListField(db.StringField())
-
-class Session(db.EmbeddedDocument):
-	#meta = {'collection': 'Session'}
-	start_time = db.DateTimeField()
-	end_time = db.DateTimeField()
-	chat = db.EmbeddedDocumentListField(Chat)
-
-class User(UserMixin, db.Document):
-	meta = {'collection': 'User'}
-	name = db.StringField(max_length=50)
-	email = db.StringField(max_length=30)
-	password = db.StringField()
-	session = db.EmbeddedDocumentListField(Session)
-	#confirm = db.StringField()
-
-
-class Session(db.Document):
-	meta:{'collection': 'Session'}
-	startTime = db.DateTimeField()
-	endTime = db.DateTimeField()
-
-class Chat(db.Document):
-	meta = {'collection':'Chat'}
-	message = db.StringField(max_length=100)
-	message_time = db.DateTimeField()
-	response = db.StringField(max_length=100)
-	response_time = db.DateTimeField()
-'''
 # ==============================================================================
 
 @login_manager.user_loader
@@ -167,40 +134,8 @@ def register():
 			if existing_user is None:
 				hashed_password = generate_password_hash(form.password.data, method='sha256')
 
-				#chat = Chat(message=list(), response=list(), message_time=list(), response_time=list()).save()
-				'''
-				chat.message = []
-				chat.response = []
-				chat.response_time = []
-				chat.message_time = []
-				'''
-				#print(chat.to_json(indent=2))
-				#print(type(chat))
-				#session = Session()
-				#session.chat.append(chat)
-				#session.save()
-				'''
-				session.start_time = None
-				session.end_time = None
-				session.chat.append(chat)
-				'''
-				#print(session.to_json(indent=2))
-
 				user = User(form.name.data, form.email.data, hashed_password).save()
-				#user.session.append(session)
-				#user.save()
-				'''
-				user.name = form.name.data
-				user.email = form.email.data
-				user.password = hashed_password
-				user.session.append(session)
-				print(user.to_json(indent=2))
-				user.save()
 				
-				User(form.data.name, form.email.data, hashed_password, Session(start_time, end_time, 
-				Chat(message=list(), response=list(), message_time=list(), response_time=list()))).save()
-				'''
-				#user = User(form.name.data, form.email.data, hashed_password).save()
 				login_user(user)
 				return redirect(url_for('dashboard'))
 			else:
@@ -256,8 +191,6 @@ def chat():
 	#session = Session()
 	start_time = str(datetime.now())
 
-	#chat = Chat()
-
 	chat_form = ChatForm()
 
 	if request.method == 'POST':
@@ -272,7 +205,8 @@ def chat():
 			break_op = True
 
 		print(m_t, " : ", user_input)
-		reply = chat_run(user_input)
+		reply = generate_unique_response(user_input)
+		#reply = chat_run(user_input)
 		r_t = str(datetime.now())
 		responses_time.append(r_t)
 
@@ -297,21 +231,6 @@ def chat():
 	return render_template('chat.html', form=chat_form, inputs=messages, responses=responses)
 
 
-'''
-	if request.method == 'POST':
-		user_input = chat_form.chatInput.data
-		print(user_input)
-		messages.append(user_input)
-		userInput.append(user_input)
-		#print(len(userInput))
-		reply = chat_run(user_input)
-		print(reply)
-		responses.append(reply)
-		bot_response.append(reply)
-		#print(len(bot_response))
-	chat_form.chatInput.data = ''
-	return render_template('chat-1.html', form=chat_form, inputs=userInput, responses=bot_response)
-'''
 def lookup(value):
 	data = {0:"Happy", 1:"Happy", 2:"Happy", 3:"Quite Happy", 4:"Not Depressed", 5:"Not Depressed", 
 	6:"Mildly Depressed", 7:"Mildly Depressed", 8:"Depressed", 9:"Highly Depressed"}
@@ -346,7 +265,7 @@ def report():
     f = open("models/classifier/clf_tokenizer.pickle", 'rb')
     tokenizer_obj = pickle.load(f)
     f.close()
-
+    '''
     test_samples_tokens = tokenizer_obj.texts_to_sequences(userInput)
     test_samples_tokens_pad = pad_sequences(test_samples_tokens, maxlen=100)
 
@@ -355,6 +274,8 @@ def report():
     results_, labels, score = depression_detect(results)
     verdict = lookup(score)
     return render_template('report.html', results = results_, userInput=userInput, labels=labels, score=score, verdict=verdict)
+	'''
+    return render_template('report.html')
 
 @login_manager.unauthorized_handler
 def unauthorized_handler():

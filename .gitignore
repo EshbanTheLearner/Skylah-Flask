@@ -10,3 +10,5 @@ scripts/chatbot/requirements.txt
 scripts/classifier/data/*
 
 /models/*
+
+.vscode
