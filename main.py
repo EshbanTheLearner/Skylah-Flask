@@ -10,7 +10,7 @@ from datetime import datetime
 import pickle
 from whitenoise import WhiteNoise
 
-from app.chatbot.response_generation import generate_unique_response
+from response_generation import generate_unique_response
 # ==============================================================================
 
 #from app.chatbot.chatbot import sample_sequence, top_filtering, loader, chat_run

@@ -1,6 +1,6 @@
 import pandas as pd
 import random
-from chatbot import chat_run
+from app.chatbot.chatbot import chat_run
 import nltk
 import pickle
 #import time

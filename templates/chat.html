@@ -130,7 +130,7 @@ span.right
 
                     <div class="input-field col s10">
                         <i class="material-icons prefix">mode_edit</i>
-                        {{ form.chatInput(class_="materialize-textarea") }}
+                        {{ form.chatInput( class_="materialize-textarea inp") }}
                     </div>
                     <div class="input-field col s2">
                         <button id="send" type="submit" class="waves-effect waves-light btn-floating btn-large blue accent-3"><i class="material-icons">send</i></button>
@@ -143,8 +143,19 @@ span.right
     <script type="text/javascript">
         console.log("Javascript Running...")
         var objDiv = document.getElementById("div1");
-        console.log(objDiv.scrollHeight)
+        //console.log(objDiv.scrollHeight)
         objDiv.scrollTop = objDiv.scrollHeight;
+    </script>
+
+    <script type="text/javascript">
+        console.log("JS Running...")
+        var input = document.getElementsByClassName("inp");
+        input[0].addEventListener("keyup", function(event){
+            if(event.keyCode == 13){
+                event.preventDefault();
+                document.getElementById("send").click();
+            }
+        });
     </script>
 
 {% endblock %}
