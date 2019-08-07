@@ -9,11 +9,24 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from datetime import datetime
 import pickle
 from whitenoise import WhiteNoise
+import nltk
+import numpy as np
+import matplotlib.pyplot as plt
+import io
+from PIL import Image
+
+from flask import Response
+import matplotlib; matplotlib.use('Agg')
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from matplotlib.figure import Figure
 
 from response_generation import generate_unique_response
+from utils import lookup, depression_detect, load_clf
+from exp import detect, freq_words, clean_text, depression_dist, depression_trend
 # ==============================================================================
 
 #from app.chatbot.chatbot import sample_sequence, top_filtering, loader, chat_run
+from app.chatbot.chatbot import chat_run
 
 # ==============================================================================
 
@@ -42,7 +55,13 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.session_protection = "strong"
 print('Succesfully connected to MongoDB')
-
+'''
+class Report(db.Document):
+	meta = {'collection': 'Report'}
+	word_frequency_plot = db.FileField()
+	depression_distribution = db.FileField()
+	depression_trend = db.FileField()
+'''
 class Chat(db.Document):
 	meta = {'collection': 'Chat'}
 	message = db.ListField(db.StringField())
@@ -55,6 +74,9 @@ class Session(db.EmbeddedDocument):
 	start_time = db.StringField()
 	end_time = db.StringField()
 	chat = db.ReferenceField(Chat)
+	#report = db.ReferenceField(Report)
+	total_score = db.FloatField()
+	score_per_sentence = db.ListField(db.FloatField()) # array of score per sentence
 
 class User(UserMixin, db.Document):
 	meta = {'collection': 'User'}
@@ -188,32 +210,38 @@ end_time = ''
 @login_required
 def chat():
 	break_op = False
+	triggers = ["bye", "goodbye", "i gotta go now", "gotta go now", "take care"]
 	#session = Session()
-	start_time = str(datetime.now())
-
+	#start_time = str(datetime.now())
 	chat_form = ChatForm()
-
 	if request.method == 'POST':
 		m_t = str(datetime.now())
 		messages_time.append(m_t)
 
 		user_input = chat_form.chatInput.data
+		user_input = user_input.strip()
+		print(type(user_input))
+		print(user_input)
 		messages.append(user_input)
 
-		if user_input.lower() == 'bye':
+		if user_input.lower() in triggers:
+			print("THIS IS THE END OF WAKANDA")
 			end_time = str(datetime.now())
 			break_op = True
 
 		print(m_t, " : ", user_input)
 		reply = generate_unique_response(user_input)
+		
 		#reply = chat_run(user_input)
 		r_t = str(datetime.now())
 		responses_time.append(r_t)
 
 		print(r_t, " : ", reply)
 		responses.append(reply)
-
+	
 	if break_op:
+		end_time = str(datetime.now())
+		print("Saving session in DB...")
 		session = Session()
 		chat = Chat()
 		chat.message = messages
@@ -223,63 +251,88 @@ def chat():
 		chat.save()
 		session.start_time = start_time
 		session.end_time = end_time
+		session.score_per_sentence =  None
+		session.total_score = None
 		session.chat = chat
 		current_user.session.append(session)
 		current_user.save()
+		generate_and_save_report()
 		return redirect(url_for('dashboard'))
+	
 	chat_form.chatInput.data = ''
 	return render_template('chat.html', form=chat_form, inputs=messages, responses=responses)
 
+def generate_and_save_report():
+	messages = []
+	messages = current_user.session[-1].chat.message
+	print(messages)
+	input_tensor = [m for m in messages]
+	print(input_tensor)
+	print("Calculating scores...")
+	results_, score_latest = detect(input_tensor)
+	print(score_latest)
+	print(results_)	
+	current_user.session[-1].total_score = score_latest
+	current_user.session[-1].score_per_sentence = results_
+	current_user.save()
+	print("No of sessions:", len(current_user.session))
+	
+def total_report():
+	total_score = 0.0
+	total_scores_array = []
+	total_messages_array = []
+	for i in range(0, len(current_user.session)):
+		total_score += current_user.session[i].total_score
+		total_scores_array += current_user.session[i].score_per_sentence
+		total_messages_array += current_user.session[i].chat.message
+	total_score /= len(current_user.session)
+	x = np.arange(len(total_scores_array))
+	total_text = " ".join(m for m in total_messages_array)
+	total_text = clean_text(total_text)
 
-def lookup(value):
-	data = {0:"Happy", 1:"Happy", 2:"Happy", 3:"Quite Happy", 4:"Not Depressed", 5:"Not Depressed", 
-	6:"Mildly Depressed", 7:"Mildly Depressed", 8:"Depressed", 9:"Highly Depressed"}
+	return  total_score, x, total_scores_array, total_text
 
-	value = round(value,1)*10
-	print("VALUE->", value)
-	if value in data:
-		label = data[value]
+def latest_report():
+	score = 0.0
+	scores_array = []
+	messages = []
+	
+	score += current_user.session[-1].total_score
+	scores_array += current_user.session[-1].score_per_sentence
+	messages += current_user.session[-1].chat.message
+	score /= len(current_user.session)
+	x = np.arange(len(scores_array))
+	text = " ".join(m for m in messages)
+	text = clean_text(text)
 
-	return label
+	return  score, x, scores_array, text
 
-def depression_detect(results):
-	act_result = []
-	labels = []
-	cumm_score = 0
+@app.route('/report_latest', methods=['GET'])
+@login_required
+def report_latest():
+	score, x, scores_array, text = latest_report()
+	url1 = freq_words(text)
+	url2 = depression_dist(scores_array)
+	url3 = depression_trend(x, scores_array)
+	verdict = lookup(score)
+	return render_template('report_latest.html', score=round(score, 2), verdict=verdict, plot1=url1, plot2=url2, plot3=url3)
 
-	for result in results:
-		for _ in result:
-			cumm_score = cumm_score + _ 
-			act_result.append(round(_, 2))
-			labels.append(lookup(_))
-	cumm_score = cumm_score/len(act_result)
-	return act_result, labels, cumm_score
 
 @app.route('/report', methods=['GET'])
 @login_required
 def report():
-    f = open("models/classifier/classifier.pickle", 'rb')
-    clf = pickle.load(f)
-    f.close()
+	total_score, x, total_scores_array, total_text = total_report()
+	url1 = freq_words(total_text)
+	url2 = depression_dist(total_scores_array)
+	url3 = depression_trend(x, total_scores_array)
 
-    f = open("models/classifier/clf_tokenizer.pickle", 'rb')
-    tokenizer_obj = pickle.load(f)
-    f.close()
-    '''
-    test_samples_tokens = tokenizer_obj.texts_to_sequences(userInput)
-    test_samples_tokens_pad = pad_sequences(test_samples_tokens, maxlen=100)
+	verdict = lookup(total_score)
 
-    results = clf.predict(x=test_samples_tokens_pad)
-    results = results.tolist()
-    results_, labels, score = depression_detect(results)
-    verdict = lookup(score)
-    return render_template('report.html', results = results_, userInput=userInput, labels=labels, score=score, verdict=verdict)
-	'''
-    return render_template('report.html')
-
+	return render_template('report.html',score=round(total_score, 2), verdict=verdict, plot1=url1, plot2=url2, plot3=url3)
+	
 @login_manager.unauthorized_handler
 def unauthorized_handler():
-    return 'Unauthorized'
+    return redirect('/')
 
 @app.errorhandler(404)
 def not_found_error(error):

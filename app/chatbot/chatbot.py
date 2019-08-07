@@ -25,17 +25,18 @@ def loader():
 
 personality, model, tokenizer, args = loader()
 
-def chat_run(raw_text):
+global history, inputs, outputs
+
+history = []
+inputs = []
+outputs = []
+
+def chat_run(raw_text, history=history, inputs=inputs, outputs=outputs):
 
     #personality, model, tokenizer, args = loader()
-
-    history = []
-    inputs = []
-    outputs = []
-
     inputs.append(raw_text)
-
-    if raw_text.lower() == 'bye':
+    #print("RAW:", raw_text)
+    if raw_text.lower().strip() == "bye":
         r = "Take care. Bye!"
         #print(r)
         return r
@@ -48,5 +49,7 @@ def chat_run(raw_text):
     out_text = tokenizer.decode(out_ids, skip_special_tokens=True)
 
     outputs.append(out_text)
-
+    out_text = out_text.replace("Hi",'')
+    out_text = out_text.replace("Hello",'')
+    out_text = out_text.replace("Hey",'')
     return out_text

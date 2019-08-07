@@ -14,6 +14,7 @@
 		$('.sidenav').sidenav();
 	});
 	</script>
+	<script src = "https://d3js.org/d3.v4.min.js"></script>
 
 	{% block head %}
 	<title>Skylah | {% block title %}{% endblock %}</title>
@@ -22,6 +23,10 @@
 </head>
 <body>
 	<div class="navbar-fixed">
+			<ul id="dropdown1" class="dropdown-content">
+				<li><a href="/report_latest">Latest</a></li>
+				<li><a href="/report">Cumulative</a></li>
+			</ul>
 		<nav class="z-depth-0">
 			<div class="nav-wrapper white">
 				<a href="#" data-target="mobile-demo" class="sidenav-trigger"><i class="material-icons black-text">menu</i></a>
@@ -32,7 +37,7 @@
 							<a href="/dashboard" class="black-text waves-effect waves-light lighten-1">Home</a>
 						</li>
 						<li>
-							<a href="/report" class="black-text waves-effect waves-light lighten-1">Report</a>
+							<a href="/report" class="black-text waves-effect waves-light lighten-1 dropdown-trigger" data-target="dropdown1">Report<i class="material-icons right">arrow_drop_down</i></a>
 						</li>
 					{% else %}
 						<li>
@@ -55,7 +60,11 @@
 	<ul class="sidenav white" id="mobile-demo">
 		{% if current_user.is_authenticated %}
 			<li><a href="/dashboard">Home</a></li>
-			<li><a href="/report">Report</a></li>		
+			<li><a class="dropdown-button dropdown-trigger" data-target="dropdown-mob" href="/report">Report<i class="material-icons right">arrow_drop_down</i></a></li>
+			<ul id="dropdown-mob" class="dropdown-content">
+				<li><a href="/report_latest">Latest</a></li>
+				<li><a href="/report">Cumulative</a></li>
+			</ul>
 		{% else %}
 			<li><a href="/">Home</a></li>
 		{% endif %}
@@ -67,6 +76,12 @@
 	{% block body %}
 	
 	{% endblock %}
+
+	<script type="text/javascript">
+	$( document ).ready(function(){
+		$(".dropdown-trigger").dropdown();
+	});
+	</script>
 
 </body>
 </html>
