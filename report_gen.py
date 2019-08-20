@@ -96,20 +96,6 @@ def depression_dist(d):
     plt.close()
     url = 'data:image/png;base64,{}'.format(graph_url)
     return url
-'''
-
-def line_plot(x, y):
-    sns.set(style="whitegrid")
-    sns.lineplot(x=x, y=y, markers=True, dashes=False)
-    plt.show()
-
-def scatter(x, y):
-    sns.set(style="whitegrid")
-    f, ax = plt.subplots(figsize=(6.5, 6.5))
-    sns.despine(f, left=True, bottom=True)
-    sns.scatterplot(x=x, y=y, palette="ch:r=-.2,d=.3_r", sizes=(1, 8), linewidth=0, ax=ax)
-    plt.show()
-'''
 
 def depression_trend(x, y):
     sns.set(style="whitegrid")

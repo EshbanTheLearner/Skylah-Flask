@@ -19,8 +19,9 @@ def depression_detect(results, labels=labels):
 def lookup(value, verdict=verdict):
     verdict = verdict
     
-    data = {0:"Highly Depressed", 1:"Depressed", 2:"Mildly Depressed", 3:"Mildly Depressed", 4:"Not Depressed", 5:"Not Depressed", 
-	6:"Quite Happy", 7:"Happy", 8:"Happy", 9:"Happy"}
+    data = {0:"Highly Depressed", 1:"Highly Depressed", 2:"Depressed", 3:"Depressed", 4:"Mildly Depressed", 5:"Not Depressed", 
+    6:"Barely Happy", 7:"Happy", 8:"Quite Happy", 9:"Very Happy"}
+    
     '''
 
     data = {0:"Happy", 1:"Happy", 2:"Happy", 3:"Quite Happy", 4:"Not Depressed", 5:"Not Depressed", 

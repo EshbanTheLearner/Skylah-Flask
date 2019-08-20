@@ -6,6 +6,7 @@ from wtforms.fields.html5 import EmailField
 from wtforms.validators import Email, Length, InputRequired, EqualTo, DataRequired
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+
 from datetime import datetime
 import pickle
 from whitenoise import WhiteNoise
@@ -22,7 +23,7 @@ from matplotlib.figure import Figure
 
 from response_generation import generate_unique_response
 from utils import lookup, depression_detect, load_clf
-from exp import detect, freq_words, clean_text, depression_dist, depression_trend
+from report_gen import detect, freq_words, clean_text, depression_dist, depression_trend
 # ==============================================================================
 
 #from app.chatbot.chatbot import sample_sequence, top_filtering, loader, chat_run
@@ -266,7 +267,7 @@ def generate_and_save_report():
 	messages = []
 	messages = current_user.session[-1].chat.message
 	print(messages)
-	input_tensor = [m for m in messages]
+	input_tensor = [[m] for m in messages]
 	print(input_tensor)
 	print("Calculating scores...")
 	results_, score_latest = detect(input_tensor)
@@ -282,6 +283,8 @@ def total_report():
 	total_scores_array = []
 	total_messages_array = []
 	for i in range(0, len(current_user.session)):
+		if current_user.session[i].total_score is None:
+			total_score += 0.0
 		total_score += current_user.session[i].total_score
 		total_scores_array += current_user.session[i].score_per_sentence
 		total_messages_array += current_user.session[i].chat.message
@@ -297,10 +300,11 @@ def latest_report():
 	scores_array = []
 	messages = []
 	
-	score += current_user.session[-1].total_score
+	score = current_user.session[-1].total_score
+	#score += score
 	scores_array += current_user.session[-1].score_per_sentence
 	messages += current_user.session[-1].chat.message
-	score /= len(current_user.session)
+	score = score / len(current_user.session)
 	x = np.arange(len(scores_array))
 	text = " ".join(m for m in messages)
 	text = clean_text(text)
@@ -310,6 +314,9 @@ def latest_report():
 @app.route('/report_latest', methods=['GET'])
 @login_required
 def report_latest():
+	if len(current_user.session) <= 0:
+		flash('You need to chat in order to generate a report')
+		return redirect(url_for('dashboard'))
 	score, x, scores_array, text = latest_report()
 	url1 = freq_words(text)
 	url2 = depression_dist(scores_array)
@@ -321,6 +328,9 @@ def report_latest():
 @app.route('/report', methods=['GET'])
 @login_required
 def report():
+	if len(current_user.session) <= 0:
+		flash('You need to chat in order to generate a report')
+		return redirect(url_for('dashboard'))
 	total_score, x, total_scores_array, total_text = total_report()
 	url1 = freq_words(total_text)
 	url2 = depression_dist(total_scores_array)

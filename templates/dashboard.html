@@ -1,5 +1,14 @@
 {% extends "navbar.html" %}
 {% block title %} Dashboard {% endblock %}
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <ul class=flashes>
+    {% for message in messages %}
+      <li>{{ message }}</li>
+    {% endfor %}
+    </ul>
+  {% endif %}
+{% endwith %}
 {% block  head %}
 	{{ super() }}
 {% endblock %}
@@ -9,6 +18,9 @@
             <div class="col s12 center-align">
                 <h4>
                     <b>Hey there, </b> {{name.split(" ")[0]}}
+                    <p class="flow-text grey-text text-darken-2">
+                        It is advised to stayed as honest as possible with chatbot. Your data is safe with us, consider it NDA protected. &#x1F609;
+                    </p>
                     <p class="flow-text grey-text text-darken-1">
                         To chat with the bot, please click the <span style="font-family: monospace;">CHAT</span> button
                     </p>

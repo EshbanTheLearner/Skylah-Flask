@@ -16,7 +16,7 @@ def generate_unique_response(string):
     edit_distances = []
     for index, question in enumerate(questions, start=0):
         edit_distance_str = nltk.edit_distance(string, question)
-        if edit_distance_str >= 0 and edit_distance_str <= 3:
+        if edit_distance_str >= 0 and edit_distance_str <= 2:
             edit_distances.append((edit_distance_str, index))
     if len(edit_distances) > 0:
         response = random.choice(edit_distances)
